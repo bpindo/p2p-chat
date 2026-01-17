@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>P2P Chat Multi User</title>
+<style>
+body { font-family: monospace; background:#111; color:#0f0; padding:15px }
+input, button { width:100%; margin:5px 0; background:#000; color:#0f0; border:1px solid #0f0; padding:8px }
+pre { background:#000; padding:10px; height:200px; overflow:auto }
+</style>
+</head>
+<body>
+
+<h3>P2P Chat (Multi User)</h3>
+<div>ID: <span id="id"></span></div>
+
+<input id="msg" placeholder="Tulis pesan">
+<button onclick="send()">Kirim</button>
+<pre id="log"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+<script>
+const myId = 'user' + Math.floor(Math.random()*10000);
+document.getElementById('id').textContent = myId;
+
+const log = t => logEl.textContent += t + "\n";
+const logEl = document.getElementById('log');
+
+const ws = new WebSocket("wss://GANTI-DENGAN-URL-FLY");
+
+const peers = {};
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ type:"register", id: myId }));
+};
+
+ws.onmessage = e => {
+  const data = JSON.parse(e.data);
+
+  if (data.type === "peers") {
+    data.peers.forEach(pid => {
+      if (pid === myId || peers[pid]) return;
+
+      const p = new SimplePeer({ initiator:true, trickle:false });
+      setupPeer(p, pid);
+      peers[pid] = p;
+    });
+    return;
+  }
+
+  if (data.signal && peers[data.from]) {
+    peers[data.from].signal(data.signal);
+  }
+};
+
+function setupPeer(peer, pid) {
+  peer.on('signal', s => {
+    ws.send(JSON.stringify({ from: myId, to: pid, signal: s }));
+  });
+
+  peer.on('connect', () => log("CONNECTED: " + pid));
+  peer.on('data', d => log(pid + ": " + d));
+}
+
+function send() {
+  const m = msg.value;
+  for (const p of Object.values(peers)) {
+    if (p.connected) p.send(m);
+  }
+  log("Kamu: " + m);
+  msg.value = "";
+}
+</script>
+</body>
+</html>
