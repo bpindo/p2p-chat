@@ -1,2 +1,4 @@
-# p2p-chat
-Mode Signal
+WebRTC Signaling Server
+- Node.js
+- WebSocket
+- Untuk signaling WebRTC
