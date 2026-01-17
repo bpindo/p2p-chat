@@ -1,50 +1,48 @@
-const WebSocket = require('ws');
+const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 8080;
 const wss = new WebSocket.Server({ port: PORT });
 
-const clients = new Map(); // id -> ws
+const clients = new Map();
 
-wss.on('connection', ws => {
+wss.on("connection", ws => {
   let clientId = null;
 
-  ws.on('message', msg => {
-    const data = JSON.parse(msg);
+  ws.on("message", message => {
+    const data = JSON.parse(message);
 
-    // 1️⃣ Register user
-    if (data.type === 'register') {
+    // registrasi client
+    if (data.type === "register") {
       clientId = data.id;
       clients.set(clientId, ws);
 
-      // kirim daftar peer ke client baru
-      ws.send(JSON.stringify({
-        type: 'peers',
-        peers: [...clients.keys()]
-      }));
+      console.log("REGISTER:", clientId);
 
-      // update peer lain
-      clients.forEach((client, id) => {
-        if (id !== clientId) {
-          client.send(JSON.stringify({
-            type: 'peers',
-            peers: [...clients.keys()]
-          }));
-        }
+      // kirim daftar peer ke semua client
+      const peers = [...clients.keys()];
+      clients.forEach(c => {
+        c.send(JSON.stringify({ type: "peers", peers }));
       });
       return;
     }
 
-    // 2️⃣ Relay signaling
+    // forward signaling
     if (data.to && clients.has(data.to)) {
       clients.get(data.to).send(JSON.stringify(data));
     }
   });
 
-  ws.on('close', () => {
+  ws.on("close", () => {
     if (clientId) {
       clients.delete(clientId);
+      console.log("DISCONNECT:", clientId);
+
+      const peers = [...clients.keys()];
+      clients.forEach(c => {
+        c.send(JSON.stringify({ type: "peers", peers }));
+      });
     }
   });
 });
 
-console.log('WebSocket signaling server running');
+console.log("WebSocket signaling server running on port", PORT);
